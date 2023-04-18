@@ -254,6 +254,7 @@ func main() {
 		progressbar.OptionEnableColorCodes(true),
 		progressbar.OptionSetWidth(15),
 		progressbar.OptionShowCount(),
+		progressbar.OptionShowDescriptionAtLineEnd(),
 		progressbar.OptionSetDescription("[cyan][1/3][reset] Writing moshable file..."),
 		progressbar.OptionSetTheme(progressbar.Theme{
 			Saucer:        "[green]=[reset]",
@@ -351,6 +352,7 @@ func main() {
 		}
 		recordsUnsaved = 0
 	}
+	bar.Finish()
 }
 
 func getWDCompanyMedia(wd *quickiedata.WikidataClient, companyIDs []string) (map[string][]*Media, error) {
@@ -370,7 +372,13 @@ func getWDCompanyMedia(wd *quickiedata.WikidataClient, companyIDs []string) (map
 		OPTIONAL { ?item wdt:P4947 ?tmdbMovieID }
 		OPTIONAL { ?item wdt:P4983 ?tmdbTVID }
 		FILTER(?tmdbMovieID != "" || ?tmdbTVID != "")
-		SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+		OPTIONAL {
+			?item rdfs:label ?itemLabel
+			FILTER langMatches(lang(?itemLabel), "en")
+		}
+		OPTIONAL {
+			?item rdfs:label ?itemLabel
+		}
 		} GROUP BY ?item ?productionCompany ?itemLabel ?linkCount ?poster ?tmdbMovieID ?tmdbTVID ORDER BY DESC(?linkCount)
 	`
 

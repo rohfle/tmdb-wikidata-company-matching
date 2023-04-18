@@ -57,10 +57,6 @@ type TMDBDiscoverTVResponse struct {
 	} `json:"results"`
 }
 
-func pad(s string) string {
-	return fmt.Sprintf("%-100s", s)
-}
-
 func tmdbRequestCompanyMedia(client *http.Client, tmdbAPIKey string, tmdbCompanyID string, mediaType string) ([]*Media, error) {
 	if mediaType != "movie" && mediaType != "tv" {
 		return nil, fmt.Errorf("tmdbRequestCompanyMedia: invalid mediaType %s", mediaType)
@@ -345,6 +341,7 @@ func main() {
 		progressbar.OptionSetWidth(15),
 		progressbar.OptionEnableColorCodes(true),
 		progressbar.OptionShowCount(),
+		progressbar.OptionShowDescriptionAtLineEnd(),
 		progressbar.OptionSetDescription("[cyan][1/3][reset] Writing moshable file..."),
 		progressbar.OptionSetTheme(progressbar.Theme{
 			Saucer:        "[green]=[reset]",
@@ -356,7 +353,7 @@ func main() {
 
 	recordsUnsaved := 0
 	for {
-		bar.Describe(pad("Reading rows..."))
+		bar.Describe("Reading rows...")
 		record, err := csvReader.Read()
 		bar.Add(1)
 		if err == io.EOF {
@@ -378,7 +375,7 @@ func main() {
 				TmdbID: tmdbID,
 				Name:   tmdbName,
 			}
-			bar.Describe(pad("Getting media for company " + tmdbID + " " + tmdbName))
+			bar.Describe("Getting media for company " + tmdbID + " " + tmdbName)
 			medias, err := tmdbGetCompanyMedia(client, TMDB_API_KEY, tmdbID)
 			if err != nil {
 				log.Fatal(err)
@@ -388,7 +385,7 @@ func main() {
 		}
 
 		if recordsUnsaved >= SAVE_BATCH_SIZE {
-			bar.Describe(pad("Saving to disk..."))
+			bar.Describe("Saving to disk...")
 			err := saveLUT(companiesLUT, mediaMappingCSVPath)
 			if err != nil {
 				log.Fatal(err)
@@ -398,11 +395,12 @@ func main() {
 	}
 
 	if recordsUnsaved > 0 {
-		bar.Describe(pad("Saving to disk..."))
+		bar.Describe("Saving to disk...")
 		err := saveLUT(companiesLUT, mediaMappingCSVPath)
 		if err != nil {
 			log.Fatal(err)
 		}
 		recordsUnsaved = 0
 	}
+	bar.Finish()
 }
