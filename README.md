@@ -39,4 +39,15 @@ go run cmd/004_mediaidscompare/main.go title_compare.csv tmdb_media_mapping.csv 
 
 ## example output
 
-[Here](./result_2023-05-10.csv)
+[here](./result_2023-05-10.csv)
+
+## labels
+
+- **PROBABLY** - name similar, at least one common media
+- **MAYBE** - name not similar, at least one common media OR name very similar, no common media
+- **UNLIKELY** - name similar, no common media
+- **NOPE** - name not similar, no common media
+
+## links
+
+https://www.wikidata.org/wiki/Wikidata:Property_proposal/TMDB_company_ID
