@@ -45,6 +45,7 @@ type TMDBDiscoverMovieResponse struct {
 		Title       string  `json:"title"`
 		ReleaseDate string  `json:"release_date"`
 	} `json:"results"`
+	TotalPages int64 `json:"total_pages"`
 }
 
 type TMDBDiscoverTVResponse struct {
@@ -55,32 +56,36 @@ type TMDBDiscoverTVResponse struct {
 		Name         string  `json:"name"`
 		FirstAirDate string  `json:"first_air_date"`
 	} `json:"results"`
+	TotalPages int64 `json:"total_pages"`
 }
 
-func tmdbRequestCompanyMedia(client *http.Client, tmdbAPIKey string, tmdbCompanyID string, mediaType string) ([]*Media, error) {
+// TODO: multiple pages - get all results
+func tmdbRequestCompanyMediaActual(client *http.Client, tmdbAPIKey string, tmdbCompanyID string, mediaType string, page int64) ([]*Media, int64, error) {
 	if mediaType != "movie" && mediaType != "tv" {
-		return nil, fmt.Errorf("tmdbRequestCompanyMedia: invalid mediaType %s", mediaType)
+		return nil, 0, fmt.Errorf("tmdbRequestCompanyMedia: invalid mediaType %s", mediaType)
 	}
 
 	baseURL := "https://api.themoviedb.org/3/discover/" + mediaType
 	var values = url.Values{}
 	values.Set("api_key", tmdbAPIKey)
 	values.Set("with_companies", tmdbCompanyID)
+	values.Set("page", strconv.FormatInt(page, 10))
 	fullURL := baseURL + "?" + values.Encode()
 
 	resp, err := client.Get(fullURL)
 	if err != nil {
-		return nil, fmt.Errorf("error while retrieving %s: %w", fullURL, err)
+		return nil, 0, fmt.Errorf("error while retrieving %s: %w", fullURL, err)
 	}
 	defer resp.Body.Close()
 
 	var medias []*Media
+	var pages int64
 
 	if mediaType == "movie" {
 		var response TMDBDiscoverMovieResponse
 		err := json.NewDecoder(resp.Body).Decode(&response)
 		if err != nil {
-			return nil, fmt.Errorf("error while unmarshalling discover movie response: %w", err)
+			return nil, 0, fmt.Errorf("error while unmarshalling discover movie response: %w", err)
 		}
 		for _, result := range response.Results {
 			media := &Media{
@@ -93,11 +98,12 @@ func tmdbRequestCompanyMedia(client *http.Client, tmdbAPIKey string, tmdbCompany
 			}
 			medias = append(medias, media)
 		}
+		pages = response.TotalPages
 	} else if mediaType == "tv" {
 		var response TMDBDiscoverTVResponse
 		err := json.NewDecoder(resp.Body).Decode(&response)
 		if err != nil {
-			return nil, fmt.Errorf("error while unmarshalling discover tv response: %w", err)
+			return nil, 0, fmt.Errorf("error while unmarshalling discover tv response: %w", err)
 		}
 		for _, result := range response.Results {
 			media := &Media{
@@ -110,8 +116,33 @@ func tmdbRequestCompanyMedia(client *http.Client, tmdbAPIKey string, tmdbCompany
 			}
 			medias = append(medias, media)
 		}
+		pages = response.TotalPages
 	}
-	return medias, nil
+	return medias, pages, nil
+}
+
+func tmdbRequestCompanyMedia(client *http.Client, tmdbAPIKey string, tmdbCompanyID string, mediaType string) ([]*Media, error) {
+	var page int64
+	var totalPages int64 = 1
+	const MAX_PAGES = 1000
+
+	var allmedias []*Media
+
+	for page = 1; page <= totalPages; page++ {
+		medias, pageCount, err := tmdbRequestCompanyMediaActual(client, tmdbAPIKey, tmdbCompanyID, mediaType, page)
+		if err != nil {
+			return nil, err
+		}
+		if page == 1 {
+			if pageCount > MAX_PAGES {
+				pageCount = MAX_PAGES
+			}
+			totalPages = pageCount
+		}
+		allmedias = append(allmedias, medias...)
+	}
+
+	return allmedias, nil
 }
 
 func tmdbGetCompanyMedia(client *http.Client, tmdbAPIKey string, tmdbCompanyID string) ([]*Media, error) {
@@ -370,7 +401,7 @@ func main() {
 			continue
 		}
 
-		if _, exists := companiesLUT[tmdbID]; !exists {
+		if company, exists := companiesLUT[tmdbID]; !exists || len(company.Media) >= 20 {
 			companiesLUT[tmdbID] = &Company{
 				TmdbID: tmdbID,
 				Name:   tmdbName,

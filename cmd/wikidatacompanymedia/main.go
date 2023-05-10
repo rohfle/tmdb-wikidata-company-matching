@@ -208,6 +208,10 @@ func main() {
 
 	compareCSVPath := os.Args[1]
 	mediaMappingCSVPath := os.Args[2]
+	forceRefresh := false
+	if len(os.Args) > 3 && os.Args[3] == "--force" {
+		forceRefresh = true
+	}
 
 	rowCount, err := estimateRowCount(compareCSVPath)
 	if err != nil {
@@ -285,7 +289,7 @@ func main() {
 			continue
 		}
 
-		if _, exists := companiesLUT[cID1]; !exists {
+		if _, exists := companiesLUT[cID1]; forceRefresh || !exists {
 			companiesLUT[cID1] = &Company{
 				ID:   cID1,
 				Name: cName1,
@@ -297,7 +301,7 @@ func main() {
 			continue
 		}
 
-		if _, exists := companiesLUT[cID2]; !exists {
+		if _, exists := companiesLUT[cID2]; forceRefresh || !exists {
 			companiesLUT[cID2] = &Company{
 				ID:   cID2,
 				Name: cName2,
@@ -401,8 +405,6 @@ func getWDCompanyMedia(wd *quickiedata.WikidataClient, companyIDs []string) (map
 		companyMedia := mediaList[companyID]
 		if companyMedia == nil {
 			companyMedia = make(map[string]*Media) // TODO: change to a map to prevent duplicates
-		} else if len(companyMedia) >= 20 {
-			continue // limit results to 20 per company
 		}
 		media := &Media{
 			ID:     result["item"].ValueAsString(),
